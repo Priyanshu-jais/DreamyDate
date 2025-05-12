@@ -16,7 +16,7 @@ const profile = require("./routes/profile");
 const location = require("./routes/location");
 
 // Setting up routes
-app.use("/api/auth", authRoutes);
+app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/profile", profile);
 app.use("/api/v1/locations", location);
 
