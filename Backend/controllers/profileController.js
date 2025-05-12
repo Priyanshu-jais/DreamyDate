@@ -54,7 +54,9 @@ exports.createProfile = async (req, res) => {
     await user.save();
 
     // Populate profileDetails when returning user
-    const populatedUser = await User.findById(user.id).populate("profileDetails").exec()
+    const populatedUser = await User.findById(user.id)
+      .populate("profileDetails")
+      .exec();
 
     return res.status(201).json({
       success: true,
@@ -85,9 +87,13 @@ exports.getProfile = async (req, res) => {
 // Update a profile by ID
 exports.updateProfile = async (req, res) => {
   try {
-    const profile = await Profile.findByIdAndUpdate(req.params.profileId, req.body, {
-      new: true,
-    });
+    const profile = await Profile.findByIdAndUpdate(
+      req.params.profileId,
+      req.body,
+      {
+        new: true,
+      }
+    );
     if (!profile) {
       return res
         .status(404)
@@ -99,16 +105,41 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// Delete a profile by ID
+// Delete a user by profileId: delete location, then profile, then user
 exports.deleteProfile = async (req, res) => {
   try {
-    const profile = await Profile.findByIdAndDelete(req.params.profileId);
+    const profileId = req.params.profileId;
+
+    // Find the profile
+    const profile = await Profile.findById(profileId);
     if (!profile) {
       return res
         .status(404)
         .json({ success: false, message: "Profile not found" });
     }
-    res.status(200).json({ success: true, message: "Profile deleted" });
+
+    // Delete associated location if exists
+    if (profile.location) {
+      await require("../models/profile/Location").findByIdAndDelete(
+        profile.location
+      );
+    }
+
+    // Delete the profile
+    await Profile.findByIdAndDelete(profileId);
+
+    // Find and update the user to remove profileDetails reference
+    const user = await User.findOne({ profileDetails: profileId });
+    if (user) {
+      user.profileDetails = undefined;
+      await user.save();
+      // Delete the user
+      await User.findByIdAndDelete(user._id);
+    }
+
+    res
+      .status(200)
+      .json({ success: true, message: "User, profile, and location deleted" });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
