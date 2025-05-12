@@ -6,21 +6,14 @@ require("dotenv").config();
 // Signup controller
 exports.signup = async (req, res) => {
   try {
-    const { email, password, confirmPassword } = req.body;
-    if (!email || !password || !confirmPassword) {
+    const { email, password } = req.body;
+    if (!email || !password ) {
       return res.status(403).send({
         success: false,
         message: "All Fields are required",
       });
     }
-    // Check if password and confirm password match
-    if (password !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Password and Confirm Password do not match. Please try again.",
-      });
-    }
+ 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {

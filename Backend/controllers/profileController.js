@@ -70,7 +70,7 @@ exports.createProfile = async (req, res) => {
 // Get a profile by ID
 exports.getProfile = async (req, res) => {
   try {
-    const profile = await Profile.findById(req.params.id);
+    const profile = await Profile.findById(req.params.profileId);
     if (!profile) {
       return res
         .status(404)
@@ -85,7 +85,7 @@ exports.getProfile = async (req, res) => {
 // Update a profile by ID
 exports.updateProfile = async (req, res) => {
   try {
-    const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, {
+    const profile = await Profile.findByIdAndUpdate(req.params.profileId, req.body, {
       new: true,
     });
     if (!profile) {
@@ -102,7 +102,7 @@ exports.updateProfile = async (req, res) => {
 // Delete a profile by ID
 exports.deleteProfile = async (req, res) => {
   try {
-    const profile = await Profile.findByIdAndDelete(req.params.id);
+    const profile = await Profile.findByIdAndDelete(req.params.profileId);
     if (!profile) {
       return res
         .status(404)

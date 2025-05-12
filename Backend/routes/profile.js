@@ -12,16 +12,16 @@ const { auth, isUser, isAdmin } = require("../middleware/auth");
 // Create profile (user only)
 router.post("/", auth, isUser, createProfile);
 
-// Get all user details (admin only)
-router.get("/getUserDetails", auth, isAdmin, getAllUserDetails);
+// Optionally, keep get by id if needed (user or admin)
+router.get("/:profileId", auth, getProfile);
 
 // Update profile (user only)
-router.put("/updateProfile", auth, isUser, updateProfile);
+router.put("/updateProfile/:profileId", auth, isUser, updateProfile);
 
 // Delete profile/account (user only)
-router.delete("/deleteProfile", auth, isUser, deleteProfile);
+router.delete("/deleteProfile/:profileId", auth, isUser, deleteProfile);
 
-// Optionally, keep get by id if needed (user or admin)
-router.get("/:id", auth, getProfile);
+// Get all user details (admin only)
+router.get("/getUserDetails", auth, isAdmin, getAllUserDetails);
 
 module.exports = router;
