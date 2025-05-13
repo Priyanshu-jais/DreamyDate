@@ -1,9 +1,16 @@
 const Profile = require("../models/profile/Profile");
 const User = require("../models/user/User");
+const {
+  uploadToCloudinary,
+  uploadMultipleToCloudinary,
+  deleteFromCloudinary,
+} = require("./fileUpload");
+const cloudinary = require("../config/cloudinary/cloudinary");
 
 // Create a new profile and link it to a user by user id from req.user.id
 exports.createProfile = async (req, res) => {
   try {
+    const formData = req.body;
     const {
       name,
       countryCode,
@@ -14,7 +21,40 @@ exports.createProfile = async (req, res) => {
       interestedSexualOrientation,
       lookingFor,
       interest,
-    } = req.body;
+    } = formData;
+
+    // Handle file upload
+    let profilePictureUrl = "";
+    if (req.files && (req.files.file || req.files.profilePicture)) {
+      const file = req.files.file || req.files.profilePicture;
+      try {
+        profilePictureUrl = await uploadToCloudinary(file);
+      } catch (uploadError) {
+        console.error("File upload error:", uploadError);
+        return res.status(400).json({
+          success: false,
+          message: "Profile picture upload failed",
+          error: uploadError.message,
+        });
+      }
+    }
+
+    // Handle photos array upload
+    let photosUrls = [];
+    if (req.files && req.files.photos) {
+      try {
+        const photoFiles = Array.isArray(req.files.photos)
+          ? req.files.photos
+          : [req.files.photos];
+        photosUrls = await uploadMultipleToCloudinary(photoFiles);
+      } catch (uploadError) {
+        return res.status(400).json({
+          success: false,
+          message: "Photos upload failed",
+          error: uploadError.message,
+        });
+      }
+    }
 
     // Get user by id from req.user (set by auth middleware)
     const user = await User.findById(req.user.id);
@@ -33,18 +73,19 @@ exports.createProfile = async (req, res) => {
       });
     }
 
-    // Create profile
+    // Create profile with all fields - ensure numbers are properly converted
     const profile = new Profile({
+      profilePicture: profilePictureUrl,
+      photos: photosUrls,
       name,
-      countryCode,
-      phoneNumber,
+      countryCode: Number(countryCode) || 0,
+      phoneNumber: Number(phoneNumber) || 0,
       gender,
       relationshipStatus,
       sexualOrientation,
       interestedSexualOrientation,
       lookingFor,
-      interest: Array.isArray(interest) ? interest : [],
-      // photos field removed for now
+      interest: Array.isArray(interest) ? interest : interest ? [interest] : [],
     });
 
     await profile.save();
@@ -65,7 +106,12 @@ exports.createProfile = async (req, res) => {
       user: populatedUser,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error("Create profile error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Error creating profile",
+      error: err.message,
+    });
   }
 };
 
@@ -84,23 +130,86 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// Update a profile by ID
+// Helper function to delete image from Cloudinary
 exports.updateProfile = async (req, res) => {
   try {
-    const profile = await Profile.findByIdAndUpdate(
-      req.params.profileId,
-      req.body,
-      {
-        new: true,
-      }
-    );
-    if (!profile) {
+    const existingProfile = await Profile.findById(req.params.profileId);
+    if (!existingProfile) {
       return res
         .status(404)
         .json({ success: false, message: "Profile not found" });
     }
-    res.status(200).json({ success: true, profile });
+
+    let updateData = { ...req.body };
+
+    // Handle profile picture update first
+    let profilePictureUrl = existingProfile.profilePicture;
+    if (req.files && (req.files.file || req.files.profilePicture)) {
+      const file = req.files.file || req.files.profilePicture;
+      try {
+        // Delete old image
+        if (existingProfile.profilePicture) {
+          await deleteFromCloudinary(existingProfile.profilePicture);
+        }
+        // Upload and get new URL
+        profilePictureUrl = await uploadToCloudinary(file);
+      } catch (error) {
+        console.error("Image update error:", error);
+        return res.status(400).json({
+          success: false,
+          message: "Failed to update profile picture",
+          error: error.message,
+        });
+      }
+    }
+
+    // Handle photos array update
+    if (req.files && req.files.photos) {
+      try {
+        // Delete existing photos if any
+        if (existingProfile.photos && existingProfile.photos.length > 0) {
+          await Promise.all(
+            existingProfile.photos.map((photoUrl) =>
+              deleteFromCloudinary(photoUrl)
+            )
+          );
+        }
+
+        // Upload new photos
+        const photoFiles = Array.isArray(req.files.photos)
+          ? req.files.photos
+          : [req.files.photos];
+        const newPhotosUrls = await uploadMultipleToCloudinary(photoFiles);
+        updateData.photos = newPhotosUrls;
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Failed to update photos",
+          error: error.message,
+        });
+      }
+    }
+
+    // Combine all updates
+    const updates = {
+      ...req.body,
+      profilePicture: profilePictureUrl, // Always set profilePicture
+    };
+
+    // Update profile with new data
+    const profile = await Profile.findByIdAndUpdate(
+      req.params.profileId,
+      updateData,
+      { new: true }
+    ).exec();
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      profile,
+    });
   } catch (err) {
+    console.error("Update error:", err);
     res.status(400).json({ success: false, message: err.message });
   }
 };

@@ -9,6 +9,16 @@ app.use(cookieParser());
 
 app.use(express.json());
 
+const fileUpload = require("express-fileupload");
+app.use(
+  fileUpload({
+    useTempFiles: true,
+    tempFileDir: "/tmp/",
+  })
+);
+
+app.use("/uploads", express.static(__dirname + "/uploads"));
+
 require("./config/DB/database").connect();
 
 const authRoutes = require("./routes/auth");
@@ -31,7 +41,3 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`App is listening at ${PORT}`);
 });
-
-
-
-
