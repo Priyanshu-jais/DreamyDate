@@ -1,12 +1,14 @@
 const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
 const app = express();
 
-require("dotenv").config();
 const PORT = process.env.PORT || 4000;
 
 const cookieParser = require("cookie-parser");
 app.use(cookieParser());
 
+app.use(cors());
 app.use(express.json());
 
 const fileUpload = require("express-fileupload");

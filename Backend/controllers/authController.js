@@ -2,18 +2,19 @@ const User = require("../models/user/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const { verifyGoogleToken } = require("../config/google/googleAuth");
 
 // Signup controller
 exports.signup = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password ) {
+    if (!email || !password) {
       return res.status(403).send({
         success: false,
         message: "All Fields are required",
       });
     }
- 
+
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -117,34 +118,55 @@ exports.login = async (req, res) => {
 // Google Signup/Login
 exports.googleAuth = async (req, res) => {
   try {
-    const { email, providerId, name } = req.body;
-    if (!email || !providerId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Email and providerId are required" });
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Token is required",
+      });
     }
-    let user = await User.findOne({ provider: "google", providerId });
+
+    // Verify Google token
+    const payload = await verifyGoogleToken(token);
+
+    // Find or create user
+    let user = await User.findOne({
+      provider: "google",
+      providerId: payload.sub,
+    });
+
     if (!user) {
       user = new User({
-        email,
+        email: payload.email,
         provider: "google",
-        providerId,
-        // Optionally add name or other fields
+        providerId: payload.sub,
       });
       await user.save();
     }
-    const token = jwt.sign(
+
+    // Generate JWT
+    const jwtToken = jwt.sign(
       { email: user.email, id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
-    user.token = token;
+
+    user.token = jwtToken;
     await user.save();
-    res
-      .status(200)
-      .json({ success: true, token, user, message: "Google Auth Success" });
+
+    res.status(200).json({
+      success: true,
+      token: jwtToken,
+      user,
+      message: "Google Auth Success",
+    });
   } catch (err) {
-    res.status(500).json({ message: "Google Auth Server error" });
+    console.error("Google Auth Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Google Auth Server error",
+      error: err.message,
+    });
   }
 };
 
