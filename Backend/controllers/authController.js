@@ -3,11 +3,26 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { verifyGoogleToken } = require("../config/google/googleAuth");
+const OTP = require("../models/OTP/OTP");
+const otpGenerator = require("otp-generator");
+const resetPasswordTemplate = require("../config/mail/templates/resetPasswordTemplate");
 
 // Signup controller
 exports.signup = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, otp } = req.body;
+
+    // Verify OTP
+    const recentOtp = await OTP.find({ email })
+      .sort({ createdAt: -1 })
+      .limit(1);
+    if (!recentOtp.length || otp !== recentOtp[0].otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
     if (!email || !password) {
       return res.status(403).send({
         success: false,
@@ -41,7 +56,7 @@ exports.signup = async (req, res) => {
     user.token = token;
     await user.save();
 
-    console.log("New user ID:", user._id);
+    // console.log("New user ID:", user._id);
 
     // Set cookie for token
     const options = {
@@ -161,7 +176,7 @@ exports.googleAuth = async (req, res) => {
       message: "Google Auth Success",
     });
   } catch (err) {
-    console.error("Google Auth Error:", err);
+    // console.error("Google Auth Error:", err);
     res.status(500).json({
       success: false,
       message: "Google Auth Server error",
@@ -170,70 +185,103 @@ exports.googleAuth = async (req, res) => {
   }
 };
 
-// Facebook Signup/Login
-exports.facebookAuth = async (req, res) => {
+// Send OTP for Signup
+exports.sendotp = async (req, res) => {
   try {
-    const { email, providerId, name } = req.body;
-    if (!email || !providerId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Email and providerId are required" });
-    }
-    let user = await User.findOne({ provider: "facebook", providerId });
-    if (!user) {
-      user = new User({
-        email,
-        provider: "facebook",
-        providerId,
-        // Optionally add name or other fields
+    const { email } = req.body;
+
+    // Check if user exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists",
       });
-      await user.save();
     }
-    const token = jwt.sign(
-      { email: user.email, id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-    user.token = token;
-    await user.save();
-    res
-      .status(200)
-      .json({ success: true, token, user, message: "Facebook Auth Success" });
-  } catch (err) {
-    res.status(500).json({ message: "Facebook Auth Server error" });
+
+    // Generate OTP
+    let otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      lowerCaseAlphabets: false,
+      specialChars: false,
+    });
+
+    // Save OTP
+    const otpBody = await OTP.create({ email, otp });
+
+    res.status(200).json({
+      success: true,
+      message: "OTP sent successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// Facebook Signup/Login
+// exports.facebookAuth = async (req, res) => {
+//   try {
+//     const { email, providerId, name } = req.body;
+//     if (!email || !providerId) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Email and providerId are required" });
+//     }
+//     let user = await User.findOne({ provider: "facebook", providerId });
+//     if (!user) {
+//       user = new User({
+//         email,
+//         provider: "facebook",
+//         providerId,
+//         // Optionally add name or other fields
+//       });
+//       await user.save();
+//     }
+//     const token = jwt.sign(
+//       { email: user.email, id: user._id, role: user.role },
+//       process.env.JWT_SECRET,
+//       { expiresIn: "24h" }
+//     );
+//     user.token = token;
+//     await user.save();
+//     res
+//       .status(200)
+//       .json({ success: true, token, user, message: "Facebook Auth Success" });
+//   } catch (err) {
+//     res.status(500).json({ message: "Facebook Auth Server error" });
+//   }
+// };
+
 // Apple (iOS) Signup/Login
-exports.appleAuth = async (req, res) => {
-  try {
-    const { email, providerId, name } = req.body;
-    if (!email || !providerId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Email and providerId are required" });
-    }
-    let user = await User.findOne({ provider: "apple", providerId });
-    if (!user) {
-      user = new User({
-        email,
-        provider: "apple",
-        providerId,
-        // Optionally add name or other fields
-      });
-      await user.save();
-    }
-    const token = jwt.sign(
-      { email: user.email, id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-    user.token = token;
-    await user.save();
-    res
-      .status(200)
-      .json({ success: true, token, user, message: "Apple Auth Success" });
-  } catch (err) {
-    res.status(500).json({ message: "Apple Auth Server error" });
-  }
-};
+// exports.appleAuth = async (req, res) => {
+//   try {
+//     const { email, providerId, name } = req.body;
+//     if (!email || !providerId) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Email and providerId are required" });
+//     }
+//     let user = await User.findOne({ provider: "apple", providerId });
+//     if (!user) {
+//       user = new User({
+//         email,
+//         provider: "apple",
+//         providerId,
+//         // Optionally add name or other fields
+//       });
+//       await user.save();
+//     }
+//     const token = jwt.sign(
+//       { email: user.email, id: user._id, role: user.role },
+//       process.env.JWT_SECRET,
+//       { expiresIn: "24h" }
+//     );
+//     user.token = token;
+//     await user.save();
+//     res
+//       .status(200)
+//       .json({ success: true, token, user, message: "Apple Auth Success" });
+//   } catch (err) {
+//     res.status(500).json({ message: "Apple Auth Server error" });
+//   }
+// };
