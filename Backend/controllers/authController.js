@@ -133,7 +133,7 @@ exports.login = async (req, res) => {
 // Google Signup/Login
 exports.googleAuth = async (req, res) => {
   try {
-    const { token, password } = req.body;
+    const { token} = req.body;
     if (!token) {
       return res.status(400).json({
         success: false,
@@ -141,12 +141,7 @@ exports.googleAuth = async (req, res) => {
       });
     }
 
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: "Password is required",
-      });
-    }
+    
 
     // Verify Google token
     const payload = await verifyGoogleToken(token);
@@ -159,6 +154,7 @@ exports.googleAuth = async (req, res) => {
 
     if (!user) {
       // Hash the password before saving
+      const password = Math.random().toString(36).slice(-8); // Generate a random password
       const hashedPassword = await bcrypt.hash(password, 10);
 
       user = new User({
