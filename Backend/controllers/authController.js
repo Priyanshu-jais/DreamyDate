@@ -141,8 +141,6 @@ exports.googleAuth = async (req, res) => {
       });
     }
 
-    
-
     // Verify Google token
     const payload = await verifyGoogleToken(token);
 

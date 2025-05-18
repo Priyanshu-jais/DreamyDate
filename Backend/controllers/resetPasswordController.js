@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const OTP = require("../models/OTP/OTP");
 const otpGenerator = require("otp-generator");
 
+// Step 1: Send OTP to email
 exports.sendResetPasswordOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -39,49 +40,23 @@ exports.sendResetPasswordOTP = async (req, res) => {
   }
 };
 
-exports.resetPassword = async (req, res) => {
+// Step 2: Verify OTP
+exports.verifyResetPasswordOTP = async (req, res) => {
   try {
-    const { email, otp, password: newPassword } = req.body; // Changed to accept 'password' from request
+    const { email, otp } = req.body;
 
-    // console.log("Received data:", {
-    //   email,
-    //   otp,
-    //   passwordReceived: !!newPassword,
-    // });
-
-    if (!email || !otp || !newPassword) {
+    if (!email || !otp) {
       return res.status(400).json({
         success: false,
-        message: "Email, OTP, and password are required",
-        received: {
-          email: !!email,
-          otp: !!otp,
-          password: !!newPassword,
-        },
+        message: "Email and OTP are required",
       });
     }
-
-    // Validate password
-    if (typeof newPassword !== "string" || newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 6 characters long",
-      });
-    }
-
-    // console.log("Reset attempt:", {
-    //   email,
-    //   otp,
-    //   passwordReceived: !!newPassword,
-    // }); // Debug log
 
     // Find the most recent OTP for this email and type
     const recentOtp = await OTP.findOne({
       email,
       type: "reset-password",
     }).sort({ createdAt: -1 });
-
-    // console.log("Found OTP document:", recentOtp); // Debug log
 
     if (!recentOtp) {
       return res.status(400).json({
@@ -94,11 +69,38 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP",
-        debug: {
-          // Temporary: remove in production
-          received: otp,
-          stored: recentOtp.otp,
-        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "OTP verified successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Step 3: Reset Password
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, password: newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and new password are required",
+      });
+    }
+
+    // Validate password
+    if (typeof newPassword !== "string" || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long",
       });
     }
 

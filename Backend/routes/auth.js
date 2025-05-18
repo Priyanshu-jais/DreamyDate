@@ -8,6 +8,7 @@ const {
 } = require("../controllers/authController");
 const {
   sendResetPasswordOTP,
+  verifyResetPasswordOTP,
   resetPassword,
 } = require("../controllers/resetPasswordController");
 
@@ -22,7 +23,9 @@ router.post("/sendotp", sendotp);
 // router.post("/facebook", authController.facebookAuth);
 // router.post("/apple", authController.appleAuth);
 
+// Password Reset Flow - 3 steps
 router.post("/forgot-password", sendResetPasswordOTP);
+router.post("/verify-otp", verifyResetPasswordOTP);
 router.post("/reset-password", resetPassword);
 
 module.exports = router;
