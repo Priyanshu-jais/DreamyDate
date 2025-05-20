@@ -2,7 +2,7 @@ const Location = require("../models/profile/Location");
 const Profile = require("../models/profile/Profile");
 
 // Create a new location and set its reference in Profile, then return populated profile
-exports.addLocation = async (req, res) => {
+exports.addLocation = async (req, res) => { 
   try {
     // Get profileId from route params
     const profileId = req.params.profileId;

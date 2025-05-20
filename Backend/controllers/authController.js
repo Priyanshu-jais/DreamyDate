@@ -134,6 +134,10 @@ exports.login = async (req, res) => {
 exports.googleAuth = async (req, res) => {
   try {
     const { token} = req.body;
+    const { email } = req.body;
+
+    
+
     if (!token) {
       return res.status(400).json({
         success: false,
@@ -149,6 +153,8 @@ exports.googleAuth = async (req, res) => {
       provider: "google",
       providerId: payload.sub,
     });
+
+    const isUserExist = user != null ? true : false;
 
     if (!user) {
       // Hash the password before saving
@@ -178,6 +184,7 @@ exports.googleAuth = async (req, res) => {
       success: true,
       token: jwtToken,
       user,
+      isUserExist: isUserExist,
       message: "Google Auth Success",
     });
   } catch (err) {
